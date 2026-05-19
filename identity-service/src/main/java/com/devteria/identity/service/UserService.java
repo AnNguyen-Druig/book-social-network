@@ -88,6 +88,8 @@ public class UserService {
     @PreAuthorize("hasRole('ADMIN')")
     public void deleteUser(String userId) {
         userRepository.deleteById(userId);
+        // Use OpenFeign (profileClient) to connect with profile-service and trigger delete profile of user
+        profileClient.deleteUserProfileByUserId(userId);
     }
 
     @PreAuthorize("hasRole('ADMIN')")

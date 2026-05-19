@@ -22,6 +22,7 @@ public class UserProfileService {
     UserProfileRepo userProfileRepo;
     UserProfileMapper userProfileMapper;
 
+    // =======================================CRUD for UserProfile=======================================//
     // * Method createProfile
     // - Get request from UserProfileCreationRequest
     // - Change request to entity (userProfile)
@@ -40,9 +41,9 @@ public class UserProfileService {
     //      - If dont have profileId in database -> throw RunTimeException with notification
     //      - Else return result
     // - Use userProfileMapper to change userProfile to userProfileResponse
-    public UserProfileResponse getUserProfile(String id) {
+    public UserProfileResponse getUserProfile(String profileId) {
         UserProfile userProfile =
-                userProfileRepo.findById(id).orElseThrow(() -> new RuntimeException("Profile not found!"));
+                userProfileRepo.findById(profileId).orElseThrow(() -> new RuntimeException("Profile not found!"));
         return userProfileMapper.toUserProfileResponse(userProfile);
     }
 
@@ -54,9 +55,9 @@ public class UserProfileService {
     // - Set information follow by request
     // - Finally use repository to save new information for user who want to update info and return Response for
     // Controller
-    public UserProfileResponse updateUserProfile(String id, UserProfileUpdationRequest request) {
+    public UserProfileResponse updateUserProfile(String profileId, UserProfileUpdationRequest request) {
         UserProfile userProfile =
-                userProfileRepo.findById(id).orElseThrow(() -> new RuntimeException("Profile not found!"));
+                userProfileRepo.findById(profileId).orElseThrow(() -> new RuntimeException("Profile not found!"));
         userProfile.setFirstName(request.getFirstName());
         userProfile.setLastName(request.getLastName());
         userProfile.setCity(request.getCity());
@@ -64,9 +65,23 @@ public class UserProfileService {
         return userProfileMapper.toUserProfileResponse(userProfile);
     }
 
-    public void deleteUserProfile(String id) {
+    // * Method deleteUserProfile to delete profile of user
+    // - User profileId to find user who want to update information
+    //      - If not found throw RunTimeException
+    //      - Else move to the next step
+    // Use userProfileRepo to delete profile of user
+    public void deleteUserProfile(String profileId) {
         UserProfile userProfile =
-                userProfileRepo.findById(id).orElseThrow(() -> new RuntimeException("Profile not found!"));
+                userProfileRepo.findById(profileId).orElseThrow(() -> new RuntimeException("Profile not found!"));
+        userProfileRepo.delete(userProfile);
+        System.out.println("Deleted Profile Successfully!");
+    }
+
+    // ==============================================CRUD for
+    // User=====================================================//
+    public void deleteUserProfileByUserId(String userId) {
+        UserProfile userProfile =
+                userProfileRepo.findByUserId(userId).orElseThrow(() -> new RuntimeException("Profile not found!"));
         userProfileRepo.delete(userProfile);
         System.out.println("Deleted Profile Successfully!");
     }

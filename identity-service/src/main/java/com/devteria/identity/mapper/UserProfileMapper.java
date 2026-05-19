@@ -4,8 +4,12 @@ import org.mapstruct.Mapper;
 
 import com.devteria.identity.dto.request.UserCreationRequest;
 import com.devteria.identity.dto.request.UserProfileCreationRequest;
+import com.devteria.identity.dto.request.UserProfileUpdationRequest;
+import com.devteria.identity.dto.request.UserUpdateRequest;
 
 @Mapper(componentModel = "spring")
 public interface UserProfileMapper {
     UserProfileCreationRequest toUserProfileCreationRequest(UserCreationRequest userCreationRequest);
+
+    UserProfileUpdationRequest toUserProfileUpdationRequest(UserUpdateRequest userUpdateRequest);
 }

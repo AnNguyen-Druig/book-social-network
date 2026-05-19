@@ -37,4 +37,9 @@ public class UserProfileController {
     void deleteUserProfile(@PathVariable String profileId) {
         userProfileService.deleteUserProfile(profileId);
     }
+
+    @DeleteMapping("/users/{userId}")
+    void deleteUserProfileByUserId(@PathVariable String userId) {
+        userProfileService.deleteUserProfileByUserId(userId);
+    }
 }
