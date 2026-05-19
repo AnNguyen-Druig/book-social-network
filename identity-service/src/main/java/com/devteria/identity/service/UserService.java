@@ -17,8 +17,10 @@ import com.devteria.identity.entity.User;
 import com.devteria.identity.exception.AppException;
 import com.devteria.identity.exception.ErrorCode;
 import com.devteria.identity.mapper.UserMapper;
+import com.devteria.identity.mapper.UserProfileMapper;
 import com.devteria.identity.repository.RoleRepository;
 import com.devteria.identity.repository.UserRepository;
+import com.devteria.identity.repository.httpclient.ProfileClient;
 
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,8 @@ public class UserService {
     RoleRepository roleRepository;
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
+    UserProfileMapper userProfileMapper;
+    ProfileClient profileClient;
 
     public UserResponse createUser(UserCreationRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) throw new AppException(ErrorCode.USER_EXISTED);
@@ -45,8 +49,18 @@ public class UserService {
         roleRepository.findById(PredefinedRole.USER_ROLE).ifPresent(roles::add);
 
         user.setRoles(roles);
+        user = userRepository.save(user);
 
-        return userMapper.toUserResponse(userRepository.save(user));
+        // Use userProfileMapper to convert UserCreationRequest to UserProfileCreationRequest to connect profile-service
+        // by OpenFeign (Profile Client)
+        var userProfileCreationRequest = userProfileMapper.toUserProfileCreationRequest(request);
+        userProfileCreationRequest.setUserId(user.getId());
+
+        // When identity-service createUser, trigger to profile-service createUserProfile
+        // log.info to show log response when create success
+        profileClient.createUserProfile(userProfileCreationRequest);
+
+        return userMapper.toUserResponse(user);
     }
 
     public UserResponse getMyInfo() {

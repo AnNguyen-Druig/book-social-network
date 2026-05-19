@@ -6,4 +6,4 @@ import org.springframework.stereotype.Repository;
 import com.devteria.profile.entity.UserProfile;
 
 @Repository
-public interface UserProfileRepository extends Neo4jRepository<UserProfile, String> {}
+public interface UserProfileRepo extends Neo4jRepository<UserProfile, String> {}

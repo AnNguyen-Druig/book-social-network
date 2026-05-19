@@ -8,7 +8,7 @@ spring:
     url: "jdbc:mysql://localhost:3306/bookteria_identity"
     driverClassName: "com.mysql.cj.jdbc.Driver"
     username: root
-    password: root
+    password: druig2
   jpa:
     hibernate:
       ddl-auto: update
@@ -16,3 +16,7 @@ spring:
 
 jwt:
   signerKey: "1TjXchw5FloESb63Kc+DFhTARvpWL4jUGCwfGWxuG5SIf/1y/LgJxHnMqaF6A/ij"
+
+app:
+  services:
+    profile: http://localhost:8081/profile

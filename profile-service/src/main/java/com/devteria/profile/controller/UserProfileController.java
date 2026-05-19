@@ -2,8 +2,9 @@ package com.devteria.profile.controller;
 
 import org.springframework.web.bind.annotation.*;
 
-import com.devteria.profile.dto.request.ProfileCreationRequest;
-import com.devteria.profile.dto.response.UserProfileReponse;
+import com.devteria.profile.dto.request.UserProfileCreationRequest;
+import com.devteria.profile.dto.request.UserProfileUpdationRequest;
+import com.devteria.profile.dto.response.UserProfileResponse;
 import com.devteria.profile.service.UserProfileService;
 
 import lombok.AccessLevel;
@@ -17,12 +18,23 @@ public class UserProfileController {
     UserProfileService userProfileService;
 
     @PostMapping("/users")
-    UserProfileReponse createProfile(@RequestBody ProfileCreationRequest request) {
-        return userProfileService.createProfile(request);
+    UserProfileResponse createUserProfile(@RequestBody UserProfileCreationRequest request) {
+        return userProfileService.createUserProfile(request);
     }
 
     @GetMapping("/users/{profileId}")
-    UserProfileReponse getProfile(@PathVariable String profileId) {
-        return userProfileService.getProfile(profileId);
+    UserProfileResponse getUserProfile(@PathVariable String profileId) {
+        return userProfileService.getUserProfile(profileId);
+    }
+
+    @PutMapping("/users/{profileId}")
+    UserProfileResponse updateUserProfile(
+            @PathVariable String profileId, @RequestBody UserProfileUpdationRequest request) {
+        return userProfileService.updateUserProfile(profileId, request);
+    }
+
+    @DeleteMapping("/users/{profileId}")
+    void deleteUserProfile(@PathVariable String profileId) {
+        userProfileService.deleteUserProfile(profileId);
     }
 }
