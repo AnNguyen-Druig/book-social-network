@@ -25,17 +25,21 @@ public class CustomJwtDecoder implements JwtDecoder {
         this.authenticationService = authenticationService;
     }
 
+    // dùng để chuyển một JWT dạng chuỗi thành object Jwt
+    // JWT has 3 parts:     'header.payload/claims.signature' ->
+    // 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbiIsImlzcyI6Im15LWFwcCJ9.signature'
     @Override
     public Jwt decode(String token) throws JwtException {
         try {
+            // dùng thư viện Nimbus JOSE JWT để parse chuỗi token thành object SignedJWT
             SignedJWT signedJWT = SignedJWT.parse(token);
 
             return new Jwt(
-                    token,
-                    signedJWT.getJWTClaimsSet().getIssueTime().toInstant(),
-                    signedJWT.getJWTClaimsSet().getExpirationTime().toInstant(),
-                    signedJWT.getHeader().toJSONObject(),
-                    signedJWT.getJWTClaimsSet().getClaims());
+                    token, // String tokenValue
+                    signedJWT.getJWTClaimsSet().getIssueTime().toInstant(), // Instant issuedAt
+                    signedJWT.getJWTClaimsSet().getExpirationTime().toInstant(), // Instant expiresAt
+                    signedJWT.getHeader().toJSONObject(), // Map<String, Object> headers
+                    signedJWT.getJWTClaimsSet().getClaims()); // Map<String, Object> claims
         } catch (ParseException e) {
             throw new JwtException("Invalid JWT Token");
         }
