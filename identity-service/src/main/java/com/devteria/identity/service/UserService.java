@@ -26,9 +26,13 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
+/**
+ * Xử lý nghiệp vụ người dùng trong identity-service.
+ *
+ * <p>Service này quản lý tài khoản, role và đồng bộ việc tạo profile sang profile-service
+ * sau khi user được tạo thành công.
+ */
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -41,6 +45,9 @@ public class UserService {
     PasswordEncoder passwordEncoder;
     ProfileClient profileClient;
 
+    /**
+     * Tạo user mới, gán role mặc định và tạo profile tương ứng ở profile-service.
+     */
     public UserResponse createUser(UserCreationRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) throw new AppException(ErrorCode.USER_EXISTED);
 
@@ -56,6 +63,7 @@ public class UserService {
         var profileRequest = profileMapper.toProfileCreationRequest(request);
         profileRequest.setUserId(user.getId());
 
+        // Sau khi user có id, gọi profile-service để tạo bản ghi hồ sơ gắn với user đó.
         profileClient.createProfile(profileRequest);
 
         return userMapper.toUserResponse(user);

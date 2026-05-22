@@ -1,9 +1,16 @@
 package com.devteria.profile.exception;
 
-import lombok.Getter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 
+import lombok.Getter;
+
+/**
+ * Danh sách mã lỗi chuẩn của profile-service.
+ *
+ * <p>Mỗi enum item gom cả business code, message và HTTP status để handler lỗi có thể tạo
+ * response nhất quán ở mọi nơi.
+ */
 @Getter
 public enum ErrorCode {
     UNCATEGORIZED_EXCEPTION(9999, "Uncategorized error", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -17,6 +24,9 @@ public enum ErrorCode {
     INVALID_DOB(1008, "Your age must be at least {min}", HttpStatus.BAD_REQUEST),
     ;
 
+    /**
+     * Khởi tạo một mã lỗi với mã nghiệp vụ, message trả về client và HTTP status tương ứng.
+     */
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
         this.code = code;
         this.message = message;

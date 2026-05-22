@@ -37,6 +37,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Xử lý các nghiệp vụ xác thực: đăng nhập, introspect token, logout và refresh token.
+ *
+ * <p>Service này là trung tâm phát hành JWT cho identity-service và quản lý danh sách token
+ * đã bị vô hiệu hóa để logout/refresh có hiệu lực ngay cả khi JWT chưa hết hạn.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -57,7 +63,13 @@ public class AuthenticationService {
     @Value("${jwt.refreshable-duration}")
     protected long REFRESHABLE_DURATION;
 
-    public IntrospectResponse introspect(IntrospectRequest request)  {
+    /**
+     * Kiểm tra token còn hợp lệ hay không mà không tạo phiên đăng nhập mới.
+     *
+     * <p>API Gateway thường gọi method này trước khi cho request đi tiếp vào các service
+     * phía sau.
+     */
+    public IntrospectResponse introspect(IntrospectRequest request) {
         var token = request.getToken();
         boolean isValid = true;
 
@@ -70,6 +82,9 @@ public class AuthenticationService {
         return IntrospectResponse.builder().valid(isValid).build();
     }
 
+    /**
+     * Xác thực username/password và phát hành access token nếu thông tin đăng nhập đúng.
+     */
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         var user = userRepository
@@ -85,6 +100,12 @@ public class AuthenticationService {
         return AuthenticationResponse.builder().token(token).build();
     }
 
+    /**
+     * Logout bằng cách đưa JWT hiện tại vào bảng invalidated token.
+     *
+     * <p>JWT vốn là stateless nên server không tự "xóa" được token đã phát hành; lưu jwtID
+     * vào blacklist giúp các lần verify sau từ chối token đó.
+     */
     public void logout(LogoutRequest request) throws ParseException, JOSEException {
         try {
             var signToken = verifyToken(request.getToken(), true);
@@ -96,11 +117,17 @@ public class AuthenticationService {
                     InvalidatedToken.builder().id(jit).expiryTime(expiryTime).build();
 
             invalidatedTokenRepository.save(invalidatedToken);
-        } catch (AppException exception){
+        } catch (AppException exception) {
             log.info("Token already expired");
         }
     }
 
+    /**
+     * Làm mới token trong khoảng thời gian còn được phép refresh.
+     *
+     * <p>Token cũ được vô hiệu hóa trước khi phát hành token mới để tránh việc cùng lúc tồn
+     * tại nhiều token hợp lệ cho một lần refresh.
+     */
     public AuthenticationResponse refreshToken(RefreshRequest request) throws ParseException, JOSEException {
         var signedJWT = verifyToken(request.getToken(), true);
 
@@ -122,16 +149,22 @@ public class AuthenticationService {
         return AuthenticationResponse.builder().token(token).build();
     }
 
+    /**
+     * Tạo JWT đã ký cho user.
+     *
+     * <p>Token chứa subject là username, thời hạn sử dụng, jwtID để blacklist khi logout và
+     * claim scope để Spring Security chuyển thành quyền truy cập.
+     */
     private String generateToken(User user) {
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
 
+        // Claims là phần payload mang thông tin mà các service khác cần đọc khi phân quyền.
         JWTClaimsSet jwtClaimsSet = new JWTClaimsSet.Builder()
                 .subject(user.getUsername())
                 .issuer("devteria.com")
                 .issueTime(new Date())
                 .expirationTime(new Date(
-                        Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()
-                ))
+                        Instant.now().plus(VALID_DURATION, ChronoUnit.SECONDS).toEpochMilli()))
                 .jwtID(UUID.randomUUID().toString())
                 .claim("scope", buildScope(user))
                 .build();
@@ -141,6 +174,7 @@ public class AuthenticationService {
         JWSObject jwsObject = new JWSObject(header, payload);
 
         try {
+            // Ký token bằng shared secret để service nhận token có thể kiểm tra tính toàn vẹn.
             jwsObject.sign(new MACSigner(SIGNER_KEY.getBytes()));
             return jwsObject.serialize();
         } catch (JOSEException e) {
@@ -149,26 +183,44 @@ public class AuthenticationService {
         }
     }
 
+    /**
+     * Xác minh chữ ký, thời hạn và trạng thái blacklist của token.
+     *
+     * <p>Khi refresh token, mốc hết hạn được tính từ issueTime cộng refreshable-duration;
+     * khi dùng token bình thường, mốc hết hạn là expirationTime trong JWT.
+     */
     private SignedJWT verifyToken(String token, boolean isRefresh) throws JOSEException, ParseException {
         JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());
 
         SignedJWT signedJWT = SignedJWT.parse(token);
 
+        // Refresh có cửa sổ thời gian riêng, dài hơn access token thông thường.
         Date expiryTime = (isRefresh)
-                ? new Date(signedJWT.getJWTClaimsSet().getIssueTime()
-                .toInstant().plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS).toEpochMilli())
+                ? new Date(signedJWT
+                        .getJWTClaimsSet()
+                        .getIssueTime()
+                        .toInstant()
+                        .plus(REFRESHABLE_DURATION, ChronoUnit.SECONDS)
+                        .toEpochMilli())
                 : signedJWT.getJWTClaimsSet().getExpirationTime();
 
         var verified = signedJWT.verify(verifier);
 
         if (!(verified && expiryTime.after(new Date()))) throw new AppException(ErrorCode.UNAUTHENTICATED);
 
+        // Từ chối token đã logout hoặc đã được dùng để refresh.
         if (invalidatedTokenRepository.existsById(signedJWT.getJWTClaimsSet().getJWTID()))
             throw new AppException(ErrorCode.UNAUTHENTICATED);
 
         return signedJWT;
     }
 
+    /**
+     * Ghép role và permission của user thành chuỗi scope trong JWT.
+     *
+     * <p>Spring Security đọc scope này để tạo authority, ví dụ ROLE_ADMIN hoặc một permission
+     * cụ thể của hệ thống.
+     */
     private String buildScope(User user) {
         StringJoiner stringJoiner = new StringJoiner(" ");
 

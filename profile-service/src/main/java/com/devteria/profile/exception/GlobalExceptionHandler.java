@@ -1,23 +1,36 @@
 package com.devteria.profile.exception;
 
-import com.devteria.profile.dto.ApiResponse;
+import java.util.Map;
+import java.util.Objects;
+
 import jakarta.validation.ConstraintViolation;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-import java.util.Map;
-import java.util.Objects;
+import com.devteria.profile.dto.ApiResponse;
 
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Handler tập trung cho exception của profile-service.
+ *
+ * <p>Controller chỉ cần ném exception; class này sẽ chuyển exception thành ApiResponse có
+ * code/message/status thống nhất cho client.
+ */
 @ControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
+    // Tên attribute trong validation annotation, dùng để thay placeholder {min} trong message.
     private static final String MIN_ATTRIBUTE = "min";
 
+    /**
+     * Bắt các lỗi chưa được phân loại để tránh lộ stack trace trực tiếp ra client.
+     */
     @ExceptionHandler(value = Exception.class)
     ResponseEntity<ApiResponse> handlingRuntimeException(RuntimeException exception) {
         log.error("Exception: ", exception);
@@ -29,6 +42,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(apiResponse);
     }
 
+    /**
+     * Bắt lỗi nghiệp vụ chủ động ném ra bằng AppException.
+     */
     @ExceptionHandler(value = AppException.class)
     ResponseEntity<ApiResponse> handlingAppException(AppException exception) {
         ErrorCode errorCode = exception.getErrorCode();
@@ -40,6 +56,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(errorCode.getStatusCode()).body(apiResponse);
     }
 
+    /**
+     * Bắt lỗi đã xác thực nhưng không đủ quyền truy cập tài nguyên.
+     */
     @ExceptionHandler(value = AccessDeniedException.class)
     ResponseEntity<ApiResponse> handlingAccessDeniedException(AccessDeniedException exception) {
         ErrorCode errorCode = ErrorCode.UNAUTHORIZED;
@@ -51,6 +70,9 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    /**
+     * Bắt lỗi validation từ request body và map key lỗi về ErrorCode tương ứng.
+     */
     @ExceptionHandler(value = MethodArgumentNotValidException.class)
     ResponseEntity<ApiResponse> handlingValidation(MethodArgumentNotValidException exception) {
         String enumKey = exception.getFieldError().getDefaultMessage();
@@ -58,11 +80,13 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = ErrorCode.INVALID_KEY;
         Map<String, Object> attributes = null;
         try {
+            // Validator đặt defaultMessage là tên enum ErrorCode, ví dụ USERNAME_INVALID.
             errorCode = ErrorCode.valueOf(enumKey);
 
             var constraintViolation =
                     exception.getBindingResult().getAllErrors().getFirst().unwrap(ConstraintViolation.class);
 
+            // Lấy attribute của annotation để thay vào message dạng "at least {min}".
             attributes = constraintViolation.getConstraintDescriptor().getAttributes();
 
             log.info(attributes.toString());
@@ -82,6 +106,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(apiResponse);
     }
 
+    /**
+     * Thay các placeholder trong message lỗi bằng giá trị cấu hình từ validation annotation.
+     */
     private String mapAttribute(String message, Map<String, Object> attributes) {
         String minValue = String.valueOf(attributes.get(MIN_ATTRIBUTE));
 

@@ -7,20 +7,23 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Cấu hình bảo mật cho profile-service.
+ *
+ * <p>Service chỉ mở endpoint nội bộ tạo profile cho identity-service; các endpoint còn lại
+ * yêu cầu JWT hợp lệ và có thể áp dụng phân quyền bằng annotation {@code @PreAuthorize}.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private static final String[] PUBLIC_ENDPOINTS = {
-        "/internal/users"
-    };
+    // Endpoint nội bộ được identity-service gọi sau khi tạo user, nên cần cho phép POST không qua JWT.
+    private static final String[] PUBLIC_ENDPOINTS = {"/internal/users"};
 
     private final CustomJwtDecoder customJwtDecoder;
 
@@ -28,6 +31,9 @@ public class SecurityConfig {
         this.customJwtDecoder = customJwtDecoder;
     }
 
+    /**
+     * Xây dựng filter chain: public endpoint được permitAll, các API còn lại phải authenticated.
+     */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.authorizeHttpRequests(request -> request.requestMatchers(HttpMethod.POST, PUBLIC_ENDPOINTS)
@@ -44,6 +50,12 @@ public class SecurityConfig {
         return httpSecurity.build();
     }
 
+    /**
+     * Chuyển claim scope trong JWT thành GrantedAuthority mà không tự thêm prefix SCOPE_.
+     *
+     * <p>Điều này giúp các giá trị như ROLE_ADMIN trong token khớp trực tiếp với
+     * {@code @PreAuthorize("hasRole('ADMIN')")}.
+     */
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();

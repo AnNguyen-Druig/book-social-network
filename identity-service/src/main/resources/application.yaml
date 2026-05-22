@@ -10,7 +10,8 @@ spring:
     url: "jdbc:mysql://localhost:3306/bookteria_identity"
     driverClassName: "com.mysql.cj.jdbc.Driver"
     username: root
-    password: root
+    # Mật khẩu MySQL local dùng khi chạy identity-service trong môi trường phát triển.
+    password: druig2
   jpa:
     hibernate:
       ddl-auto: update
