@@ -9,5 +9,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 public class NotificationServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(NotificationServiceApplication.class, args);
+        System.out.println("BREVO_API_KEY = " + System.getenv("BREVO_API_KEY"));
     }
 }
