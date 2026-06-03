@@ -8,3 +8,8 @@ spring:
   data:
     mongodb:
       uri: mongodb://root:root@localhost:27017/file-service?authSource=admin
+
+app:
+  file:
+    storage-dir: D:/Course_DEV/Devteria/Microservices/Bookteria/upload
+    download-prefix: htt://localhost:8888/api/v1/file/media/
