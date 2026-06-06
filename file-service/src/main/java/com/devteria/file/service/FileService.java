@@ -30,7 +30,6 @@ import java.util.UUID;
 public class FileService {
     FileRepository fileRepository;
     FileMgmtRepository fileMgmtRepository;
-
     FileMgmtMapper fileMgmtMapper;
 
     public FileResponse uploadFile(MultipartFile file) throws IOException {
@@ -42,7 +41,7 @@ public class FileService {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         fileMgmt.setOwnerId(userId);
 
-        fileMgmt = fileMgmtRepository.save(fileMgmt);
+        fileMgmtRepository.save(fileMgmt);
 
         return FileResponse.builder()
                 .originalFileName(file.getOriginalFilename())
