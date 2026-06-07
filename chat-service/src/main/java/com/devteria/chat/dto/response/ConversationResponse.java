@@ -16,6 +16,7 @@ public class ConversationResponse {
     String id;
     String type; // GROUP, DIRECT
     String participantsHash;
+    //conversationAvatar, conversationName: user A when open conversation will see avatar and name of user B and constrast (<>)
     String conversationAvatar;
     String conversationName;
     List<ParticipantInfo> participants;

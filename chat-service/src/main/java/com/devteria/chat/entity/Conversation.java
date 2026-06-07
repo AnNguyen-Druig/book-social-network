@@ -23,7 +23,7 @@ public class Conversation {
     String type; // GROUP, DIRECT
 
     @Indexed(unique = true)
-    String participantsHash;
+    String participantsHash;    //ensure exist one conversation between 2 people. ex: user A creates conversation with user B -> just exist one conversation between both of them.
 
     List<ParticipantInfo> participants;
 
