@@ -1,5 +1,6 @@
 package com.devteria.chat.service;
 
+import com.corundumstudio.socketio.SocketIOServer;
 import com.devteria.chat.dto.request.ChatMessageRequest;
 import com.devteria.chat.dto.response.ChatMessageResponse;
 import com.devteria.chat.entity.ChatMessage;
@@ -29,8 +30,8 @@ public class ChatMessageService {
     ChatMessageRepository chatMessageRepository;
     ConversationRepository conversationRepository;
     ProfileClient profileClient;
-
     ChatMessageMapper chatMessageMapper;
+    SocketIOServer socketioServer;
 
     public List<ChatMessageResponse> getMessages(String conversationId) {
         // Validate conversationId
@@ -79,6 +80,12 @@ public class ChatMessageService {
 
         // Create chat message
         chatMessage = chatMessageRepository.save(chatMessage);
+        String message = chatMessage.getMessage();
+
+        // Publish socket event to clients
+        socketioServer.getAllClients().forEach(client -> {
+           client.sendEvent("message", message);
+        });
 
         // convert to Response
         return toChatMessageResponse(chatMessage);
