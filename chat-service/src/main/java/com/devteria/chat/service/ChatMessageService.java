@@ -32,7 +32,6 @@ public class ChatMessageService {
     ChatMessageRepository chatMessageRepository;
     ConversationRepository conversationRepository;
     ProfileClient profileClient;
-
     ChatMessageMapper chatMessageMapper;
 
     public List<ChatMessageResponse> getMessages(String conversationId) {
