@@ -1,26 +1,35 @@
 package com.devteria.chat.service;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
 import com.corundumstudio.socketio.SocketIOServer;
 import com.devteria.chat.dto.request.ChatMessageRequest;
 import com.devteria.chat.dto.response.ChatMessageResponse;
 import com.devteria.chat.entity.ChatMessage;
 import com.devteria.chat.entity.ParticipantInfo;
+import com.devteria.chat.entity.WebSocketSession;
 import com.devteria.chat.exception.AppException;
 import com.devteria.chat.exception.ErrorCode;
 import com.devteria.chat.mapper.ChatMessageMapper;
 import com.devteria.chat.repository.ChatMessageRepository;
 import com.devteria.chat.repository.ConversationRepository;
+import com.devteria.chat.repository.WebSocketSessionRepository;
 import com.devteria.chat.repository.httpclient.ProfileClient;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.Objects;
 
 @Slf4j
 @Service
@@ -32,13 +41,15 @@ public class ChatMessageService {
     ChatMessageRepository chatMessageRepository;
     ConversationRepository conversationRepository;
     ProfileClient profileClient;
-
     ChatMessageMapper chatMessageMapper;
+    WebSocketSessionRepository webSocketSessionRepository;
+    ObjectMapper objectMapper;
 
     public List<ChatMessageResponse> getMessages(String conversationId) {
         // Validate conversationId
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        conversationRepository.findById(conversationId)
+        conversationRepository
+                .findById(conversationId)
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND))
                 .getParticipants()
                 .stream()
@@ -51,13 +62,15 @@ public class ChatMessageService {
         return messages.stream().map(this::toChatMessageResponse).toList();
     }
 
-    public ChatMessageResponse create(ChatMessageRequest request) {
+    public ChatMessageResponse create(ChatMessageRequest request) throws JsonProcessingException {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        // Get conversationId
+        var conversation = conversationRepository
+                .findById(request.getConversationId())
+                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
+
         // Validate conversationId
-        conversationRepository.findById(request.getConversationId())
-                .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND))
-                .getParticipants()
-                .stream()
+        conversation.getParticipants().stream()
                 .filter(participantInfo -> userId.equals(participantInfo.getUserId()))
                 .findAny()
                 .orElseThrow(() -> new AppException(ErrorCode.CONVERSATION_NOT_FOUND));
@@ -72,21 +85,42 @@ public class ChatMessageService {
         // Build Chat message Info
         ChatMessage chatMessage = chatMessageMapper.toChatMessage(request);
         chatMessage.setSender(ParticipantInfo.builder()
-                        .userId(userInfo.getUserId())
-                        .username(userInfo.getUsername())
-                        .firstName(userInfo.getFirstName())
-                        .lastName(userInfo.getLastName())
-                        .avatar(userInfo.getAvatar())
+                .userId(userInfo.getUserId())
+                .username(userInfo.getUsername())
+                .firstName(userInfo.getFirstName())
+                .lastName(userInfo.getLastName())
+                .avatar(userInfo.getAvatar())
                 .build());
         chatMessage.setCreatedDate(Instant.now());
 
         // Create chat message
         chatMessage = chatMessageRepository.save(chatMessage);
-        String message = chatMessage.getMessage();
 
-        // Publish socket event to clients
+        // Publish socket event to clients in common conversation
+        // Get participants userIds
+        List<String> userIds = conversation.getParticipants().stream()
+                .map(ParticipantInfo::getUserId)
+                .toList();
+
+        // Get socketSessionIds
+        Map<String, WebSocketSession> webSocketSessions = webSocketSessionRepository.findAllByUserIdIn(userIds).stream()
+                .collect(Collectors.toMap(WebSocketSession::getSocketSessionId, Function.identity()));
+
+        // Map chatMessage to chatMessageResponse
+        ChatMessageResponse chatMessageResponse = chatMessageMapper.toChatMessageResponse(chatMessage);
+
         socketIOServer.getAllClients().forEach(client -> {
-            client.sendEvent("message", message);
+            var webSocketSession = webSocketSessions.get(client.getSessionId().toString());
+            if (Objects.nonNull(webSocketSession)) {
+                String message = null;
+                try {
+                    chatMessageResponse.setMe(webSocketSession.getUserId().equals(userId));
+                    message = objectMapper.writeValueAsString(chatMessageResponse);
+                    client.sendEvent("message", message);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
         });
 
         // convert to Response

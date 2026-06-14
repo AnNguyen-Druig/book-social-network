@@ -2,7 +2,6 @@ package com.devteria.chat.entity;
 
 import java.time.Instant;
 
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 
@@ -14,19 +13,13 @@ import lombok.experimental.FieldDefaults;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "chat_message")
+@Document(collection = "web_socket_session")
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class ChatMessage {
+public class WebSocketSession {
     @MongoId
     String id;
 
-    @Indexed
-    String conversationId;
-
-    String message;
-
-    ParticipantInfo sender;
-
-    @Indexed
-    Instant createdDate;
+    String socketSessionId;
+    String userId;
+    Instant createdAt;
 }
